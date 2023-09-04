@@ -1,0 +1,207 @@
+import sqlite3
+import time
+from tkinter import StringVar, PhotoImage
+import os
+import ttkbootstrap
+from ttkbootstrap.dialogs import Messagebox
+import ttkbootstrap as ttk
+from ttkbootstrap.tableview import *
+from ttkbootstrap.tableview import Tableview
+from dotenv import DotEnv
+import mysql.connector
+import pandas as pd
+from pathlib import Path
+from datetime import datetime
+from ttkbootstrap.constants import *
+from ttkbootstrap.tooltip import ToolTip
+from pystray import MenuItem as item
+import pystray
+from PIL import Image
+
+import matplotlib.pyplot as plt
+import plotly
+import snap7
+from threading import *
+dotenv = DotEnv()
+class Application():
+
+
+    def threading(self):
+        self.t1 = Thread(target=self.conecta)
+        self.t1.start()
+
+    def info(self):
+        self.now1 = datetime.now()
+
+        self.hora_fim = self.now1.strftime("%H:%M:%S")
+        self.dat = self.now1.strftime("%d/%m/%Y")
+
+    def conecta(self):
+        print("inicio thread")
+        while True:
+            try:
+                time.sleep(3)
+                self.banco = sqlite3.connect('leite.db')
+                self.cursor = self.banco.cursor()
+                self.plc = snap7.client.Client()
+                self.plc.connect((dotenv.get('Ip')), int(dotenv.get('Rack')), int(dotenv.get('Slot')))
+                self.db = self.plc.db_read(int(dotenv.get('IpNumber')), int(dotenv.get('StartAddres')), int(dotenv.get('Size')))
+                self.sinal = int.from_bytes(self.db[int(dotenv.get('Init_sinal')):int(dotenv.get('Fim_sinal'))], byteorder='big')
+                print(self.sinal)
+
+
+                if self.sinal == 1:
+
+                    print("entrou")
+                    print(self.hora_inicio)
+                    if self.hora_inicio == []:
+                        self.now1 = datetime.now()
+                        self.time1 = self.now1.strftime("%H:%M:%S")
+
+                        self.hora_inicio.append(self.time1)
+                        print(self.hora_inicio)
+
+                    else:
+                        print("data de inicio ja coletada")
+
+                if self.sinal == 2:
+
+                    self.hora_inicio2 = self.hora_inicio[0]
+                    self.now = datetime.now()
+                    self.horario = self.now.strftime("%d/%m/%Y")
+                    self.hora_fim = self.now.strftime("%H:%M:%S")
+                    self.dat = self.now.strftime("%Y-%m-%d")
+                    self.dat2 = self.now.strftime("%d/%m/%Y")
+                    print("data1" + self.dat)
+                    print("data2" +self.dat2)
+
+                    self.plc = snap7.client.Client()
+                    self.plc.connect((dotenv.get('Ip')), int(dotenv.get('Rack')), int(dotenv.get('Slot')))
+                    self.db = self.plc.db_read(int(dotenv.get('IpNumber')), int(dotenv.get('StartAddres')), int(dotenv.get('Size')))
+                    self.sinal = int.from_bytes(self.db[int(dotenv.get('Init_sinal')):int(dotenv.get('Fim_sinal'))], byteorder='big')
+                    print("buscando litros")
+
+
+                    self.placa = self.db[0:16].decode('UTF-8').strip('\x00')
+                    self.placa1 = self.db[0:2].decode('UTF-8').strip('\x00')
+                    self.placa2 = self.db[2:4].decode('UTF-8').strip('\x00')
+                    self.placa3 = self.db[4:6].decode('UTF-8').strip('\x00')
+                    self.placa4 = self.db[6:8].decode('UTF-8').strip('\x00')
+                    self.placa5 = self.db[8:10].decode('UTF-8').strip('\x00')
+                    self.placa6 = self.db[10:12].decode('UTF-8').strip('\x00')
+                    self.placa7 = self.db[12:14].decode('UTF-8').strip('\x00')
+                    self.placa8 = self.db[14:16].decode('UTF-8').strip('\x00')
+                    self.res_placa = (self.placa1+self.placa2+self.placa3+self.placa4+self.placa5+self.placa6+self.placa7+self.placa8)
+                    print(self.res_placa)
+
+                    self.litros = int.from_bytes(self.db[int(dotenv.get('Init_litros')):int(dotenv.get('Fim_litros'))], byteorder='big')
+
+
+                    print("d")
+
+                    time.sleep(2)
+
+
+                    self.cursor.execute(f"INSERT INTO `relatorio` (`Id`, `Placa`, `Litros`, `HrInicio`, `HrFinal`,`Data`, `Data2`) VALUES (NULL, '{self.res_placa}', '{self.litros}', '{self.hora_inicio2}', '{self.hora_fim}', '{self.dat}', '{self.dat2}')")
+
+
+                    self.banco.commit()
+                    #self.banco.close()
+                    print("Gravado com sucesso!!!")
+                    time.sleep(1)
+                    print("zerando busca")
+                    self.hora_inicio.clear()
+                    time.sleep(13)
+                    print("Retornando")
+                else:
+                    print("else sinal2")
+            except:
+                print("error conexao sinal 2")
+
+
+
+
+
+    def imagem(self):
+        self.img = PhotoImage(file="cooper2.png")
+        self.b = ttk.Label(self.app, image=self.img)
+        self.b.pack()
+
+    def center(self, win):
+        # :param win: the main window or Toplevel window to center
+
+        # Apparently a common hack to get the window size. Temporarily hide the
+        # window to avoid update_idletasks() drawing the window in the wrong
+        # position.
+        win.update_idletasks()  # Update "requested size" from geometry manager
+
+        # define window dimensions width and height
+        width = win.winfo_width()
+        frm_width = win.winfo_rootx() - win.winfo_x()
+        win_width = width + 2 * frm_width
+
+        height = win.winfo_height()
+        titlebar_height = win.winfo_rooty() - win.winfo_y()
+        win_height = height + titlebar_height + frm_width
+
+        # Get the window position from the top dynamically as well as position from left or right as follows
+        x = win.winfo_screenwidth() // 2 - win_width // 2
+        y = win.winfo_screenheight() // 2 - win_height // 2
+
+        # this is the line that will center your window
+        win.geometry('{}x{}+{}+{}'.format(width, height, x, y))
+
+        # This seems to draw the window frame immediately, so only call deiconify()
+        # after setting correct window position
+        win.deiconify()
+    def quit_window(self, icon, item):
+        pass
+        #self.app.destroy()
+
+    def show_window(self, icon, item):
+        self.icon.stop()
+        self.app.after(0, self.app.deiconify)
+
+    def withdraw_window(self):
+        self.app.withdraw()
+        self.image = Image.open("favicon.ico")
+        self.menu = (item('Quit', self.quit_window), item('Show', self.show_window))
+        self.icon = pystray.Icon("name", self.image, "Cooper_A1", self.menu)
+        self.icon.run_detached()
+    def banco(self):
+
+        self.banco = sqlite3.connect('leite.db')
+        self.cursor = self.banco.cursor()
+
+        self.query2 = ("""CREATE TABLE IF NOT EXISTS relatorio (Id integer PRIMARY KEY AUTOINCREMENT,
+                                                  Placa varchar(22), 
+                                                  Litros integer,
+                                                  HrInicio varchar(22),
+                                                  Hrfinal varchar(22),
+                                                  Data date,
+                                                  Data2 varchar(22))""")
+
+        self.query = ("""SELECT * FROM relatorio""")
+        self.cursor.execute(self.query2)
+        self.banco.close()
+
+    def __init__(self):
+
+        self.app = ttk.Window(themename="flatly")
+        self.app.geometry("350x430")
+        self.app.title("Login")
+
+        self.hora_inicio = []
+        self.banco()
+        self.imagem()
+
+        self.info()
+        self.threading()
+
+        self.center(self.app)  # A função
+        self.app.protocol('WM_DELETE_WINDOW', self.withdraw_window)
+        self.withdraw_window()
+        self.app.mainloop()
+
+
+Application()
